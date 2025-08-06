@@ -1,0 +1,16 @@
+---
+description: EXPLAIN what is the project
+globs: 
+alwaysApply: true
+---
+## Context
+
+* `next-zod-route` is a library that help NextJS developers to create route handler with `Zod` validation.
+* The library is only designed to be used with `zod`.
+* The library is only designed to be used with `NextJS`.
+
+## Stack
+
+* TypeScript for the language
+* Husky for automations
+* Vitest to create and handle test

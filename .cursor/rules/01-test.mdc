@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+After any feature, add test inside [routeHandlerBuilder.test.ts](mdc:src/routeHandlerBuilder.test.ts) and then run it with `pnpmp run test` and verify that the code you wrote work correctly.
