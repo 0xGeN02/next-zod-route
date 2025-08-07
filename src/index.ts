@@ -5,4 +5,5 @@ export {
   type MiddlewareFunction,
   type RouteHandlerBuilderConfig,
   type RouteResponse,
+  type RouteHandlerError,
 } from './types';

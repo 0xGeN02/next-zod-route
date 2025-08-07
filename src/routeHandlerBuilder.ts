@@ -9,6 +9,7 @@ import type {
   NextFunction,
   OriginalRouteHandler,
   OriginalRouteResponse,
+  RouteHandlerError,
 } from './types';
 
 /**
@@ -397,7 +398,7 @@ const handleError = <TReturn>(
   }
 
   if (handleServerError) {
-    return handleServerError(error as Error) as OriginalRouteResponse<Awaited<TReturn>>;
+    return handleServerError(error as RouteHandlerError) as OriginalRouteResponse<Awaited<TReturn>>;
   }
 
   return new Response(JSON.stringify({ message: 'Internal server error' }), {

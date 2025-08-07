@@ -85,11 +85,24 @@ export type OriginalRouteHandler<TReturn> = (
 ) => TReturn;
 
 /**
+ * Represents an error that can be thrown by a route handler
+ * It extends the standard Error object and can include additional properties
+ * @param status - HTTP status code for the error @example 404, 403
+ * @param code - Error code for categorization @example "NOT_FOUND", "UNAUTHORIZED"
+ * @param metadata - Optional additional metadata about the error
+ */
+export interface RouteHandlerError extends Error {
+  status: number;
+  code: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Function that handles server errors in route handlers
- * @param error - The error that was thrown
+ * @param error  - The error thrown by the route handler @type {RouteHandlerError}
  * @returns Response object with appropriate error details and status code
  */
-export type HandlerServerErrorFn = (error: Error) => Response;
+export type HandlerServerErrorFn = (error: RouteHandlerError) => Response;
 
 /**
  * Function that handles FormData parsing or transformation.
