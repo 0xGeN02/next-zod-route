@@ -2,7 +2,7 @@
 
 A fork from [next-safe-route](https://github.com/richardsolomou/next-safe-route) that uses [zod](https://github.com/colinhacks/zod) for schema validation.
 
-`next-zod-route` is a utility library for Next.js that provides type-safety and schema validation for [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)/API Routes.
+`next-zod-route` is a utility library for Next.js that provides type-safety and schema validation for [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)/API Routes with enhanced error handling capabilities.
 
 ## Features
 
@@ -13,7 +13,7 @@ A fork from [next-safe-route](https://github.com/richardsolomou/next-safe-route)
 - **🧪 Fully Tested:** Extensive test suite to ensure everything works reliably.
 - **🔐 Enhanced Middleware System:** Powerful middleware system with pre/post handler execution, response modification, and context chaining.
 - **🎯 Metadata Support:** Add and validate metadata for your routes with full type safety.
-- **🛡️ Custom Error Handling:** Flexible error handling with custom error handlers for both middleware and route handlers.
+- **🛡️ Structured Error Handling:** Rich error handling with `RouteHandlerError` interface providing status codes, error codes, and metadata for better API consistency and debugging.
 
 ## Installation
 
@@ -35,7 +35,7 @@ yarn add next-zod-route zod
 
 ```ts
 // app/api/hello/route.ts
-import { createZodRoute } from 'next-zod-route';
+import { createZodRoute, type RouteHandlerError } from 'next-zod-route';
 import { z } from 'zod';
 
 const paramsSchema = z.object({
@@ -445,46 +445,221 @@ Key changes in v0.2.0:
 5. Middleware can short-circuit by returning a Response
 6. Error handling in middleware is now consistent with handler error handling
 
-### Custom Error Handler
+### Error Handling
 
-You can specify a custom error handler function to handle errors thrown in your route handler or middleware:
+#### RouteHandlerError Interface
+
+`next-zod-route` provides a structured error interface for better error handling and API consistency:
 
 ```ts
-import { createZodRoute } from 'next-zod-route';
+import { type RouteHandlerError, createZodRoute } from 'next-zod-route';
 
-// Create a custom error class
-class CustomError extends Error {
-  constructor(
-    message: string,
-    public status: number = 400,
-  ) {
+// The RouteHandlerError interface extends the standard Error
+interface RouteHandlerError extends Error {
+  status: number;                    // HTTP status code (required)
+  code: string;                      // Application error code (required)
+  metadata?: Record<string, unknown>; // Additional error context (optional)
+}
+```
+
+#### Creating Custom Errors
+
+You can create custom error classes that implement the `RouteHandlerError` interface:
+
+```ts
+import { type RouteHandlerError } from 'next-zod-route';
+
+// Validation error with field details
+class ValidationError extends Error implements RouteHandlerError {
+  status = 422;
+  code = 'VALIDATION_ERROR';
+  metadata: Record<string, unknown>;
+
+  constructor(message: string, fields: Record<string, string>) {
     super(message);
-    this.name = 'CustomError';
+    this.name = 'ValidationError';
+    this.metadata = { 
+      fields,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 
-// Create a route with a custom error handler
+// Authentication error
+class AuthError extends Error implements RouteHandlerError {
+  status = 401;
+  code = 'UNAUTHORIZED';
+  
+  constructor(message: string = 'Authentication required') {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+// Permission error with required permissions
+class PermissionError extends Error implements RouteHandlerError {
+  status = 403;
+  code = 'INSUFFICIENT_PERMISSIONS';
+  metadata: Record<string, unknown>;
+
+  constructor(message: string, required: string[], current: string[]) {
+    super(message);
+    this.name = 'PermissionError';
+    this.metadata = { 
+      required, 
+      current,
+      resource: 'API endpoint'
+    };
+  }
+}
+
+// Rate limiting error
+class RateLimitError extends Error implements RouteHandlerError {
+  status = 429;
+  code = 'RATE_LIMIT_EXCEEDED';
+  metadata: Record<string, unknown>;
+
+  constructor(limit: number, resetTime: string) {
+    super('Too many requests');
+    this.name = 'RateLimitError';
+    this.metadata = { 
+      limit, 
+      resetTime,
+      retryAfter: 60
+    };
+  }
+}
+```
+
+#### Custom Error Handler
+
+You can specify a custom error handler function to handle `RouteHandlerError` instances:
+
+```ts
+import { type RouteHandlerError, createZodRoute } from 'next-zod-route';
+
+// Enhanced error handler that uses RouteHandlerError properties
 const safeRoute = createZodRoute({
-  handleServerError: (error: Error) => {
-    if (error instanceof CustomError) {
-      return new Response(JSON.stringify({ message: error.message }), { status: error.status });
+  handleServerError: (error: RouteHandlerError) => {
+    // Log error with structured data
+    console.error(`[${error.code}] ${error.message}`, {
+      status: error.status,
+      metadata: error.metadata,
+      stack: error.stack
+    });
+
+    // Handle different error types
+    if (error.code === 'VALIDATION_ERROR') {
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code,
+        fields: error.metadata?.fields
+      }), { 
+        status: error.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Default error response
-    return new Response(JSON.stringify({ message: 'Internal server error' }), { status: 500 });
+    if (error.code === 'RATE_LIMIT_EXCEEDED') {
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code,
+        retryAfter: error.metadata?.retryAfter
+        status: error.status,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Retry-After': String(error.metadata?.retryAfter || 60)
+        }
+      });
+    }
+
+    // Default structured error response
+    return new Response(JSON.stringify({
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString()
+    }), { 
+      status: error.status,
+      headers: { 'Content-Type': 'application/json' }
+    });
   },
 });
 
-export const GET = safeRoute
-  .use(async () => {
-    // This error will be caught by the custom error handler
-    throw new CustomError('Middleware error', 400);
-  })
+// Usage in route handlers
+export const POST = safeRoute
+  .body(z.object({
+    email: z.string().email(),
+    age: z.number().min(18)
+  }))
   .handler((request, context) => {
-    // This error will also be caught by the custom error handler
-    throw new CustomError('Handler error', 400);
+    const { email, age } = context.body;
+    
+    // Throw structured validation error
+    if (!email.includes('@company.com')) {
+      throw new ValidationError('Invalid email domain', {
+        email: 'Must be a company email address'
+      });
+    }
+    
+    // Throw permission error
+    if (age < 21) {
+      throw new PermissionError('Access denied', ['adult'], ['minor']);
+    }
+    
+    return { success: true, user: { email, age } };
   });
 ```
+
+#### Error Response Examples
+
+With the `RouteHandlerError` interface, your API responses become more consistent and informative:
+
+```json
+// Validation Error Response (422)
+{
+  "error": "Invalid input data",
+  "code": "VALIDATION_ERROR",
+  "fields": {
+    "email": "Invalid email format",
+    "age": "Must be greater than 18"
+  }
+}
+
+// Authentication Error Response (401)
+{
+  "error": "Authentication required",
+  "code": "UNAUTHORIZED",
+  "timestamp": "2025-08-07T10:30:00Z"
+}
+
+// Permission Error Response (403)
+{
+  "error": "Access denied",
+  "code": "INSUFFICIENT_PERMISSIONS",
+  "metadata": {
+    "required": ["admin", "write"],
+    "current": ["user", "read"],
+    "resource": "API endpoint"
+  }
+}
+
+// Rate Limit Error Response (429)
+{
+  "error": "Too many requests",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "retryAfter": 60
+}
+```
+
+**Note:** The additional fields like `fields`, `timestamp`, `retryAfter`, etc. come from the `metadata` property of your custom error classes and are included in the response by your custom error handler.
+
+#### Benefits of RouteHandlerError
+
+- **Consistency:** All errors follow the same structure with `status`, `code`, and optional `metadata`
+- **Type Safety:** Full TypeScript support for error properties
+- **Rich Context:** Include additional information via `metadata` for better debugging and client handling
+- **API Documentation:** Error codes make it easier to document expected error responses
+- **Client Handling:** Frontend applications can handle errors more intelligently based on error codes
 
 By default, if no custom error handler is provided, the library will return a generic "Internal server error" message with a 500 status code to avoid information leakage.
 
