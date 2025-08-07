@@ -1,6 +1,6 @@
 {
   "name": "@0xgen02/next-zod-route",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A zod way to define route handlers in Next.js",
   "keywords": [
     "next",
