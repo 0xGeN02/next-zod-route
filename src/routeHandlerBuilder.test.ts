@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { createZodRoute } from './createZodRoute';
 import { RouteHandlerBuilder } from './routeHandlerBuilder';
-import { MiddlewareFunction, RouteResponse } from './types';
+import { MiddlewareFunction, RouteHandlerError, RouteResponse } from './types';
 
 const paramsSchema = z.object({
   id: z.uuid(),
@@ -367,18 +367,37 @@ describe('combined validation', () => {
   });
 
   it('should handle server errors using handleServerError method', async () => {
-    class CustomError extends Error {
+    class CustomError extends Error implements RouteHandlerError {
+      status = 400;
+      code = 'CUSTOM_ERROR';
+      metadata = { timestamp: Date.now() };
+
       constructor(message: string) {
         super(message);
         this.name = 'CustomError';
       }
     }
-    const handleServerError = (error: Error) => {
+
+    const handleServerError = (error: RouteHandlerError) => {
       if (error instanceof CustomError) {
-        return new Response(JSON.stringify({ message: error.name, details: error.message }), { status: 400 });
+        return new Response(
+          JSON.stringify({
+            message: error.name,
+            details: error.message,
+            code: error.code,
+            status: error.status,
+          }),
+          { status: error.status },
+        );
       }
 
-      return new Response(JSON.stringify({ message: 'Something went wrong' }), { status: 400 });
+      return new Response(
+        JSON.stringify({
+          message: 'Something went wrong',
+          code: 'INTERNAL_SERVER_ERROR',
+        }),
+        { status: 500 },
+      );
     };
 
     const GET = createZodRoute({
@@ -394,7 +413,12 @@ describe('combined validation', () => {
     const data = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ message: 'CustomError', details: 'Test error' });
+    expect(data).toEqual({
+      message: 'CustomError',
+      details: 'Test error',
+      code: 'CUSTOM_ERROR',
+      status: 400,
+    });
   });
 });
 
@@ -600,6 +624,7 @@ describe('metadata validation', () => {
         const { id } = context.params;
         const { search } = context.query;
         const { permission, role } = context.metadata!;
+
         return Response.json({ id, search, permission, role }, { status: 200 });
       });
 
@@ -811,19 +836,37 @@ describe('enhanced middleware functionality', () => {
   });
 
   it('should handle custom error thrown inside a middleware', async () => {
-    class CustomMiddlewareError extends Error {
+    class CustomMiddlewareError extends Error implements RouteHandlerError {
+      status = 403;
+      code = 'MIDDLEWARE_ERROR';
+      metadata = { source: 'middleware', timestamp: Date.now() };
+
       constructor(message: string) {
         super(message);
         this.name = 'CustomMiddlewareError';
       }
     }
 
-    const handleServerError = (error: Error) => {
+    const handleServerError = (error: RouteHandlerError) => {
       if (error instanceof CustomMiddlewareError) {
-        return new Response(JSON.stringify({ message: error.name, details: error.message }), { status: 400 });
+        return new Response(
+          JSON.stringify({
+            message: error.name,
+            details: error.message,
+            code: error.code,
+            metadata: error.metadata,
+          }),
+          { status: error.status },
+        );
       }
 
-      return new Response(JSON.stringify({ message: 'Something went wrong' }), { status: 500 });
+      return new Response(
+        JSON.stringify({
+          message: 'Something went wrong',
+          code: 'INTERNAL_SERVER_ERROR',
+        }),
+        { status: 500 },
+      );
     };
 
     const GET = createZodRoute({
@@ -840,8 +883,13 @@ describe('enhanced middleware functionality', () => {
     const response = await GET(request, { params: Promise.resolve({}) });
     const data = (await response.json()) as Record<string, unknown>;
 
-    expect(response.status).toBe(400);
-    expect(data).toEqual({ message: 'CustomMiddlewareError', details: 'Middleware error occurred' });
+    expect(response.status).toBe(403);
+    expect(data).toEqual({
+      message: 'CustomMiddlewareError',
+      details: 'Middleware error occurred',
+      code: 'MIDDLEWARE_ERROR',
+      metadata: { source: 'middleware', timestamp: expect.any(Number) },
+    });
   });
 });
 
@@ -1503,5 +1551,116 @@ describe('return type deduction', () => {
         { id: 2, name: 'Item 2' },
       ]);
     });
+  });
+});
+
+describe('RouteHandlerError interface tests', () => {
+  it('should handle RouteHandlerError with all properties', async () => {
+    class ValidationError extends Error implements RouteHandlerError {
+      status = 422;
+      code = 'VALIDATION_ERROR';
+      metadata = {
+        fields: { email: 'Invalid format', age: 'Must be positive' },
+        timestamp: '2025-08-07T10:30:00Z',
+      };
+
+      constructor(message: string) {
+        super(message);
+        this.name = 'ValidationError';
+      }
+    }
+
+    const handleServerError = (error: RouteHandlerError) => {
+      return new Response(
+        JSON.stringify({
+          message: error.message,
+          code: error.code,
+          status: error.status,
+          metadata: error.metadata,
+        }),
+        { status: error.status },
+      );
+    };
+
+    const POST = createZodRoute({
+      handleServerError,
+    })
+      .body(bodySchema)
+      .handler(() => {
+        throw new ValidationError('Multiple validation errors');
+      });
+
+    const request = new Request('http://localhost/', {
+      method: 'POST',
+      body: JSON.stringify({ field: 'test' }),
+    });
+
+    const response = await POST(request, { params: Promise.resolve({}) });
+    const data = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(422);
+    expect(data).toEqual({
+      message: 'Multiple validation errors',
+      code: 'VALIDATION_ERROR',
+      status: 422,
+      metadata: {
+        fields: { email: 'Invalid format', age: 'Must be positive' },
+        timestamp: '2025-08-07T10:30:00Z',
+      },
+    });
+  });
+
+  it('should handle basic Error that gets cast to RouteHandlerError', async () => {
+    const handleServerError = (error: RouteHandlerError) => {
+      // Verificar que se puede manejar errores básicos
+      const status = error.status || 500;
+      const code = error.code || 'INTERNAL_SERVER_ERROR';
+
+      return new Response(
+        JSON.stringify({
+          message: error.message,
+          code,
+          status,
+          hasMetadata: !!error.metadata,
+        }),
+        { status },
+      );
+    };
+
+    const GET = createZodRoute({
+      handleServerError,
+    }).handler(() => {
+      // Error básico sin status/code
+      throw new Error('Basic error');
+    });
+
+    const request = new Request('http://localhost/');
+    const response = await GET(request, { params: Promise.resolve({}) });
+    const data = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      message: 'Basic error',
+      code: 'INTERNAL_SERVER_ERROR',
+      status: 500,
+      hasMetadata: false,
+    });
+  });
+
+  it('should verify RouteHandlerError type safety at compile time', () => {
+    // Este test verifica que el tipado funcione correctamente
+    const testError: RouteHandlerError = {
+      name: 'TestError',
+      message: 'Test message',
+      status: 400,
+      code: 'TEST_ERROR',
+    };
+
+    // Verificar que todas las propiedades estén presentes
+    expect(testError.name).toBe('TestError');
+    expect(testError.message).toBe('Test message');
+    expect(testError.status).toBe(400);
+    expect(testError.code).toBe('TEST_ERROR');
+    expect(testError.metadata).toBeUndefined();
   });
 });
