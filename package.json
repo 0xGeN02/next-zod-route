@@ -1,5 +1,5 @@
 {
-  "name": "@0xgen0/next-zod-route",
+  "name": "@0xgen02/next-zod-route",
   "version": "1.0.0",
   "description": "A zod way to define route handlers in Next.js",
   "keywords": [
@@ -16,7 +16,7 @@
   ],
   "license": "MIT",
   "author": {
-    "name": "0xGeN0"
+    "name": "0xGeN02"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
