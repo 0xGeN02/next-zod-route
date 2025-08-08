@@ -1,19 +1,16 @@
-const { resolve } = require("path");
+import { resolve } from "path";
 
 const project = resolve(__dirname, "tsconfig.json");
 
-module.exports = {
-  root: true,
-  extends: [],
-  parserOptions: {
-    project,
-  },
-  settings: {
-    "import/resolver": {
-      typescript: {
-        project,
-      },
+export const root = true;
+export const parserOptions = {
+  project,
+};
+export const settings = {
+  "import/resolver": {
+    typescript: {
+      project,
     },
   },
-  ignorePatterns: [".eslintrc.js"],
 };
+export const ignorePatterns = [".eslintrc.js"];
