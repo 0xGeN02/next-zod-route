@@ -1,4 +1,4 @@
-import z from 'zod';
+import z from "zod";
 
 import type {
   HandlerFormData,
@@ -10,19 +10,23 @@ import type {
   OriginalRouteHandler,
   OriginalRouteResponse,
   RouteHandlerError,
-} from './types';
+} from "./types";
 
 /**
  * Type of the middleware function passed to a safe action client.
  */
 export type MiddlewareFn<TContext, TReturnType, TMetadata = unknown> = {
-  (opts: { context: TContext; request: Request; metadata?: TMetadata }): Promise<TReturnType>;
+  (opts: {
+    context: TContext;
+    request: Request;
+    metadata?: TMetadata;
+  }): Promise<TReturnType>;
 };
 
 export class InternalRouteHandlerError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'InternalRouteHandlerError';
+    this.name = "InternalRouteHandlerError";
   }
 }
 
@@ -204,10 +208,12 @@ export class RouteHandlerBuilder<
    * @returns A new instance of the RouteHandlerBuilder
    */
   metadata(value: z.output<TMetadata>) {
-    return new RouteHandlerBuilder<TParams, TQuery, TBody, TContext, TMetadata>({
-      ...this,
-      metadataValue: value,
-    });
+    return new RouteHandlerBuilder<TParams, TQuery, TBody, TContext, TMetadata>(
+      {
+        ...this,
+        metadataValue: value,
+      },
+    );
   }
 
   /**
@@ -225,7 +231,13 @@ export class RouteHandlerBuilder<
       z.output<TMetadata>
     >,
   ) {
-    return new RouteHandlerBuilder<TParams, TQuery, TBody, TContext & TNestContext, TMetadata>({
+    return new RouteHandlerBuilder<
+      TParams,
+      TQuery,
+      TBody,
+      TContext & TNestContext,
+      TMetadata
+    >({
       ...this,
       middlewares: [...this.middlewares, middleware],
       contextType: {} as TContext & TNestContext,
@@ -247,7 +259,10 @@ export class RouteHandlerBuilder<
       TReturn
     >,
   ): OriginalRouteHandler<Promise<OriginalRouteResponse<Awaited<TReturn>>>> {
-    return async (request, context): Promise<OriginalRouteResponse<Awaited<TReturn>>> => {
+    return async (
+      request,
+      context,
+    ): Promise<OriginalRouteResponse<Awaited<TReturn>>> => {
       try {
         const url = new URL(request.url);
         let params: unknown = context?.params ? await context.params : {};
@@ -261,21 +276,25 @@ export class RouteHandlerBuilder<
 
         // Support both JSON and FormData parsing
         let body: unknown = {};
-        if (request.method !== 'GET' && request.method !== 'DELETE') {
+        if (request.method !== "GET" && request.method !== "DELETE") {
           try {
-            const contentType = request.headers.get('content-type') || '';
+            const contentType = request.headers.get("content-type") || "";
             if (
-              contentType.includes('multipart/form-data') ||
-              contentType.includes('application/x-www-form-urlencoded')
+              contentType.includes("multipart/form-data") ||
+              contentType.includes("application/x-www-form-urlencoded")
             ) {
               const formData = await request.formData();
-              body = this.handleFormData ? this.handleFormData(formData) : Object.fromEntries(formData.entries());
+              body = this.handleFormData
+                ? this.handleFormData(formData)
+                : Object.fromEntries(formData.entries());
             } else {
               body = await request.json();
             }
           } catch (error) {
             if (this.config.bodySchema) {
-              throw new InternalRouteHandlerError(JSON.stringify({ message: 'Invalid body', errors: error }));
+              throw new InternalRouteHandlerError(
+                JSON.stringify({ message: "Invalid body", errors: error }),
+              );
             }
           }
         }
@@ -285,7 +304,10 @@ export class RouteHandlerBuilder<
           const paramsResult = this.config.paramsSchema.safeParse(params);
           if (!paramsResult.success) {
             throw new InternalRouteHandlerError(
-              JSON.stringify({ message: 'Invalid params', errors: paramsResult.error.issues }),
+              JSON.stringify({
+                message: "Invalid params",
+                errors: paramsResult.error.issues,
+              }),
             );
           }
           params = paramsResult.data;
@@ -296,7 +318,10 @@ export class RouteHandlerBuilder<
           const queryResult = this.config.querySchema.safeParse(query);
           if (!queryResult.success) {
             throw new InternalRouteHandlerError(
-              JSON.stringify({ message: 'Invalid query', errors: queryResult.error.issues }),
+              JSON.stringify({
+                message: "Invalid query",
+                errors: queryResult.error.issues,
+              }),
             );
           }
           query = queryResult.data;
@@ -307,7 +332,10 @@ export class RouteHandlerBuilder<
           const bodyResult = this.config.bodySchema.safeParse(body);
           if (!bodyResult.success) {
             throw new InternalRouteHandlerError(
-              JSON.stringify({ message: 'Invalid body', errors: bodyResult.error.issues }),
+              JSON.stringify({
+                message: "Invalid body",
+                errors: bodyResult.error.issues,
+              }),
             );
           }
           body = bodyResult.data;
@@ -318,7 +346,10 @@ export class RouteHandlerBuilder<
           const metadataResult = this.config.metadataSchema.safeParse(metadata);
           if (!metadataResult.success) {
             throw new InternalRouteHandlerError(
-              JSON.stringify({ message: 'Invalid metadata', errors: metadataResult.error.issues }),
+              JSON.stringify({
+                message: "Invalid metadata",
+                errors: metadataResult.error.issues,
+              }),
             );
           }
           metadata = metadataResult.data;
@@ -327,7 +358,9 @@ export class RouteHandlerBuilder<
         // Execute middleware chain
         let middlewareContext: TContext = {} as TContext;
 
-        const executeMiddlewareChain = async (index: number): Promise<OriginalRouteResponse<Awaited<TReturn>>> => {
+        const executeMiddlewareChain = async (
+          index: number,
+        ): Promise<OriginalRouteResponse<Awaited<TReturn>>> => {
           if (index >= this.middlewares.length) {
             try {
               const result = await handler(request, {
@@ -338,14 +371,18 @@ export class RouteHandlerBuilder<
                 metadata: metadata as z.output<TMetadata>,
               });
 
-              if (result instanceof Response) return result as OriginalRouteResponse<Awaited<TReturn>>;
+              if (result instanceof Response)
+                return result as OriginalRouteResponse<Awaited<TReturn>>;
 
               return new Response(JSON.stringify(result), {
                 status: 200,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { "Content-Type": "application/json" },
               }) as OriginalRouteResponse<Awaited<TReturn>>;
             } catch (error) {
-              return handleError(error as Error, this.handleServerError);
+              return handleError(
+                error as RouteHandlerError,
+                this.handleServerError,
+              );
             }
           }
 
@@ -372,36 +409,44 @@ export class RouteHandlerBuilder<
               next,
             });
 
-            if (result instanceof Response) return result as OriginalRouteResponse<Awaited<TReturn>>;
+            if (result instanceof Response)
+              return result as OriginalRouteResponse<Awaited<TReturn>>;
 
             middlewareContext = { ...middlewareContext };
             return result;
           } catch (error) {
-            return handleError(error as Error, this.handleServerError);
+            return handleError(
+              error as RouteHandlerError,
+              this.handleServerError,
+            );
           }
         };
 
         return executeMiddlewareChain(0);
       } catch (error) {
-        return handleError(error as Error, this.handleServerError);
+        return handleError(error as RouteHandlerError, this.handleServerError);
       }
     };
   }
 }
 
 const handleError = <TReturn>(
-  error: Error,
+  error: RouteHandlerError,
   handleServerError?: HandlerServerErrorFn,
 ): OriginalRouteResponse<Awaited<TReturn>> => {
   if (error instanceof InternalRouteHandlerError) {
-    return new Response(error.message, { status: 400 }) as OriginalRouteResponse<Awaited<TReturn>>;
+    return new Response(error.message, {
+      status: 400,
+    }) as OriginalRouteResponse<Awaited<TReturn>>;
   }
 
   if (handleServerError) {
-    return handleServerError(error as RouteHandlerError) as OriginalRouteResponse<Awaited<TReturn>>;
+    return handleServerError(
+      error as RouteHandlerError,
+    ) as OriginalRouteResponse<Awaited<TReturn>>;
   }
 
-  return new Response(JSON.stringify({ message: 'Internal server error' }), {
+  return new Response(JSON.stringify({ message: "Internal server error" }), {
     status: 500,
   }) as OriginalRouteResponse<Awaited<TReturn>>;
 };
