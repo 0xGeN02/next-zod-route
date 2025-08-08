@@ -14,7 +14,6 @@ Version 0.2.0 introduces a completely revamped middleware system that provides m
 ## Breaking Changes
 
 1. Middleware must now accept an object with:
-
    - `request`: The incoming request
    - `ctx`: Current context from previous middleware
    - `metadata`: Optional route metadata (type-safe)
@@ -34,7 +33,7 @@ Version 0.2.0 introduces a completely revamped middleware system that provides m
 
 ```typescript
 const authMiddleware = async () => {
-  return { user: { id: 'user-123' } };
+  return { user: { id: "user-123" } };
 };
 
 const route = createZodRoute()
@@ -50,7 +49,7 @@ const route = createZodRoute()
 ```typescript
 const authMiddleware = async ({ next }) => {
   const response = await next({
-    ctx: { user: { id: 'user-123' } },
+    ctx: { user: { id: "user-123" } },
   });
   return response;
 };
@@ -69,7 +68,7 @@ const route = createZodRoute()
 
 ```typescript
 const loggingMiddleware = async ({ next }) => {
-  console.log('Starting request...');
+  console.log("Starting request...");
   const start = performance.now();
 
   const response = await next();
@@ -91,7 +90,7 @@ const headerMiddleware = async ({ next }) => {
     status: response.status,
     headers: {
       ...Object.fromEntries(response.headers.entries()),
-      'X-Custom': 'value',
+      "X-Custom": "value",
     },
   });
 };
@@ -102,7 +101,7 @@ const headerMiddleware = async ({ next }) => {
 ```typescript
 const middleware1 = async ({ next }) => {
   const response = await next({
-    ctx: { value1: 'first' },
+    ctx: { value1: "first" },
   });
   return response;
 };
@@ -112,7 +111,7 @@ const middleware2 = async ({ context, next }) => {
   console.log(context.value1); // 'first'
 
   const response = await next({
-    ctx: { value2: 'second' },
+    ctx: { value2: "second" },
   });
   return response;
 };
@@ -125,9 +124,9 @@ const authMiddleware = async ({ next }) => {
   const isAuthed = false;
 
   if (!isAuthed) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -148,27 +147,32 @@ const permissionsMetadataSchema = z.object({
 // Create a middleware that checks permissions
 const permissionCheckMiddleware = async ({ next, metadata, request }) => {
   // Get user permissions from auth header, token, or session
-  const token = request.headers.get('authorization')?.split(' ')[1];
+  const token = request.headers.get("authorization")?.split(" ")[1];
   const userPermissions = await getUserPermissionsFromToken(token);
 
   // If no required permissions in metadata, allow access
-  if (!metadata?.requiredPermissions || metadata.requiredPermissions.length === 0) {
+  if (
+    !metadata?.requiredPermissions ||
+    metadata.requiredPermissions.length === 0
+  ) {
     return next({ ctx: { authorized: true } });
   }
 
   // Check if user has all required permissions
-  const hasAllPermissions = metadata.requiredPermissions.every((permission) => userPermissions.includes(permission));
+  const hasAllPermissions = metadata.requiredPermissions.every((permission) =>
+    userPermissions.includes(permission),
+  );
 
   if (!hasAllPermissions) {
     // Short-circuit with 403 Forbidden response
     return new Response(
       JSON.stringify({
-        error: 'Forbidden',
-        message: 'You do not have the required permissions',
+        error: "Forbidden",
+        message: "You do not have the required permissions",
       }),
       {
         status: 403,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       },
     );
   }
@@ -181,10 +185,10 @@ const permissionCheckMiddleware = async ({ next, metadata, request }) => {
 const route = createZodRoute()
   .defineMetadata(permissionsMetadataSchema)
   .use(permissionCheckMiddleware)
-  .metadata({ requiredPermissions: ['read:users'] })
+  .metadata({ requiredPermissions: ["read:users"] })
   .handler((request, context) => {
     // Only executed if user has 'read:users' permission
-    return Response.json({ data: 'Protected data' });
+    return Response.json({ data: "Protected data" });
   });
 ```
 
@@ -207,7 +211,7 @@ const middleware = async () => {
 
 // After
 const middleware = async ({ request, next }) => {
-  const token = request.headers.get('authorization');
+  const token = request.headers.get("authorization");
   return next({ ctx: { token } });
 };
 ```
@@ -216,19 +220,19 @@ const middleware = async ({ request, next }) => {
 
 ```typescript
 // Before
-const middleware1 = async () => ({ value1: 'first' });
-const middleware2 = async () => ({ value2: 'second' });
+const middleware1 = async () => ({ value1: "first" });
+const middleware2 = async () => ({ value2: "second" });
 
 // After
 const middleware1 = async ({ next }) => {
-  return next({ ctx: { value1: 'first' } });
+  return next({ ctx: { value1: "first" } });
 };
 const middleware2 = async ({ context, next }) => {
   return next({
     ctx: {
       ...context,
-      value2: 'second'
-    }
+      value2: "second",
+    },
   });
 };
 ```
@@ -247,10 +251,13 @@ const middleware = async ({ next }) => {
 
   // Now you can transform the response
   const data = await response.json();
-  return new Response(JSON.stringify({
-    ...data,
-    transformed: true,
-  }), response);
+  return new Response(
+    JSON.stringify({
+      ...data,
+      transformed: true,
+    }),
+    response,
+  );
 };
 ```
 

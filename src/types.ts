@@ -1,4 +1,4 @@
-import { ZodType } from 'zod';
+import { ZodType } from "zod";
 
 /**
  * Function that is called when the route handler is executed and all the middleware has been executed
@@ -6,9 +6,22 @@ import { ZodType } from 'zod';
  * @param context - The context object
  * @returns The response from the route handler
  */
-export type HandlerFunction<TParams, TQuery, TBody, TContext, TMetadata = unknown, TReturn = unknown> = (
+export type HandlerFunction<
+  TParams,
+  TQuery,
+  TBody,
+  TContext,
+  TMetadata = unknown,
+  TReturn = unknown,
+> = (
   request: Request,
-  context: { params: TParams; query: TQuery; body: TBody; ctx: TContext; metadata?: TMetadata },
+  context: {
+    params: TParams;
+    query: TQuery;
+    body: TBody;
+    ctx: TContext;
+    metadata?: TMetadata;
+  },
 ) => TReturn | Response;
 
 /**
@@ -22,7 +35,9 @@ export type MiddlewareContext<TContext, TNewContext> = TContext & TNewContext;
  * @returns Promise resolving to the response from the next middleware or handler
  */
 export type NextFunction<TContext> = {
-  <NC extends object = {}>(opts?: { ctx?: NC }): Promise<MiddlewareResult<NC & TContext>>;
+  <NC extends object = {}>(opts?: {
+    ctx?: NC;
+  }): Promise<MiddlewareResult<NC & TContext>>;
 };
 
 /**

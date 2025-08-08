@@ -35,8 +35,8 @@ yarn add next-zod-route zod
 
 ```ts
 // app/api/hello/route.ts
-import { createZodRoute, type RouteHandlerError } from 'next-zod-route';
-import { z } from 'zod';
+import { createZodRoute, type RouteHandlerError } from "next-zod-route";
+import { z } from "zod";
 
 const paramsSchema = z.object({
   id: z.string(),
@@ -71,7 +71,7 @@ export const POST = createZodRoute()
     const { field } = context.body;
 
     // Custom status
-    return NextResponse.json({ id, search, field }), { status: 400 };
+    return (NextResponse.json({ id, search, field }), { status: 400 });
   });
 ```
 
@@ -99,13 +99,13 @@ You can return responses in two ways:
 - A. **Return a Response object directly:**
 
   ```ts
-  return NextResponse.json({ data: 'value' }, { status: 200 });
+  return NextResponse.json({ data: "value" }, { status: 200 });
   ```
 
 - B. **Return a plain object** that will be automatically converted to a JSON response with status 200:
 
   ```ts
-  return { data: 'value' };
+  return { data: "value" };
   ```
 
 ## Advanced Usage
@@ -136,7 +136,7 @@ One powerful use case for metadata is defining required permissions for routes a
 Here's how to implement permission-based authorization:
 
 ```ts
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 // Define a schema for permissions metadata
 const permissionsMetadataSchema = z.object({
@@ -144,28 +144,37 @@ const permissionsMetadataSchema = z.object({
 });
 
 // Create a middleware that checks permissions
-const permissionCheckMiddleware: MiddlewareFunction = async ({ next, metadata, request }) => {
+const permissionCheckMiddleware: MiddlewareFunction = async ({
+  next,
+  metadata,
+  request,
+}) => {
   // Get user permissions from auth header, token, or session
   const userPermissions = getUserPermissions(request);
 
   // If no required permissions in metadata, allow access
-  if (!metadata?.requiredPermissions || metadata.requiredPermissions.length === 0) {
+  if (
+    !metadata?.requiredPermissions ||
+    metadata.requiredPermissions.length === 0
+  ) {
     return next({ context: { authorized: true } });
   }
 
   // Check if user has all required permissions
-  const hasAllPermissions = metadata.requiredPermissions.every((permission) => userPermissions.includes(permission));
+  const hasAllPermissions = metadata.requiredPermissions.every((permission) =>
+    userPermissions.includes(permission),
+  );
 
   if (!hasAllPermissions) {
     // Short-circuit with 403 Forbidden response
     return new Response(
       JSON.stringify({
-        error: 'Forbidden',
-        message: 'You do not have the required permissions',
+        error: "Forbidden",
+        message: "You do not have the required permissions",
       }),
       {
         status: 403,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       },
     );
   }
@@ -178,16 +187,16 @@ const permissionCheckMiddleware: MiddlewareFunction = async ({ next, metadata, r
 export const GET = createZodRoute()
   .defineMetadata(permissionsMetadataSchema)
   .use(permissionCheckMiddleware)
-  .metadata({ requiredPermissions: ['read:users'] })
+  .metadata({ requiredPermissions: ["read:users"] })
   .handler((request, context) => {
     // Only executed if user has 'read:users' permission
-    return Response.json({ data: 'Protected data' });
+    return Response.json({ data: "Protected data" });
   });
 
 export const POST = createZodRoute()
   .defineMetadata(permissionsMetadataSchema)
   .use(permissionCheckMiddleware)
-  .metadata({ requiredPermissions: ['write:users'] })
+  .metadata({ requiredPermissions: ["write:users"] })
   .handler((request, context) => {
     // Only executed if user has 'write:users' permission
     return Response.json({ success: true });
@@ -196,7 +205,7 @@ export const POST = createZodRoute()
 export const DELETE = createZodRoute()
   .defineMetadata(permissionsMetadataSchema)
   .use(permissionCheckMiddleware)
-  .metadata({ requiredPermissions: ['admin:users'] })
+  .metadata({ requiredPermissions: ["admin:users"] })
   .handler((request, context) => {
     // Only executed if user has 'admin:users' permission
     return Response.json({ success: true });
@@ -215,10 +224,10 @@ This pattern allows you to:
 You can add middleware to your route handler with the `use` method. Middleware functions can add data to the context that will be available in your handler.
 
 ```ts
-import { type MiddlewareFunction, createZodRoute } from 'next-zod-route';
+import { type MiddlewareFunction, createZodRoute } from "next-zod-route";
 
 const loggingMiddleware: MiddlewareFunction = async ({ next }) => {
-  console.log('Before handler');
+  console.log("Before handler");
   const startTime = performance.now();
 
   // next() returns a Promise<Response>
@@ -230,14 +239,18 @@ const loggingMiddleware: MiddlewareFunction = async ({ next }) => {
   return response;
 };
 
-const authMiddleware: MiddlewareFunction = async ({ request, metadata, next }) => {
+const authMiddleware: MiddlewareFunction = async ({
+  request,
+  metadata,
+  next,
+}) => {
   try {
     // Get the token from the request headers
-    const token = request.headers.get('authorization')?.split(' ')[1];
+    const token = request.headers.get("authorization")?.split(" ")[1];
 
     // You can access metadata in middleware
-    if (metadata?.role !== 'admin') {
-      throw new Error('Unauthorized');
+    if (metadata?.role !== "admin") {
+      throw new Error("Unauthorized");
     }
 
     // Validate the token and get the user
@@ -254,7 +267,7 @@ const authMiddleware: MiddlewareFunction = async ({ request, metadata, next }) =
       status: response.status,
       headers: {
         ...Object.fromEntries(response.headers.entries()),
-        'X-User-Id': user.id,
+        "X-User-Id": user.id,
       },
     });
   } catch (error) {
@@ -263,10 +276,13 @@ const authMiddleware: MiddlewareFunction = async ({ request, metadata, next }) =
   }
 };
 
-const permissionsMiddleware: MiddlewareFunction = async ({ metadata, next }) => {
+const permissionsMiddleware: MiddlewareFunction = async ({
+  metadata,
+  next,
+}) => {
   // Metadata are optional and type-safe
   const response = await next({
-    context: { permissions: metadata?.permissions ?? ['read'] },
+    context: { permissions: metadata?.permissions ?? ["read"] },
   });
   return response;
 };
@@ -274,7 +290,7 @@ const permissionsMiddleware: MiddlewareFunction = async ({ metadata, next }) => 
 export const GET = createZodRoute()
   .defineMetadata(
     z.object({
-      role: z.enum(['admin', 'user']),
+      role: z.enum(["admin", "user"]),
       permissions: z.array(z.string()).optional(),
     }),
   )
@@ -311,10 +327,10 @@ The middleware can:
 #### Pre/Post Handler Execution
 
 ```ts
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 const timingMiddleware: MiddlewareFunction = async ({ next }) => {
-  console.log('Starting request...');
+  console.log("Starting request...");
   const start = performance.now();
 
   const response = await next();
@@ -329,7 +345,7 @@ const timingMiddleware: MiddlewareFunction = async ({ next }) => {
 #### Response Modification
 
 ```ts
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 const headerMiddleware: MiddlewareFunction = async ({ next }) => {
   const response = await next();
@@ -338,7 +354,7 @@ const headerMiddleware: MiddlewareFunction = async ({ next }) => {
     status: response.status,
     headers: {
       ...Object.fromEntries(response.headers.entries()),
-      'X-Custom': 'value',
+      "X-Custom": "value",
     },
   });
 };
@@ -347,11 +363,11 @@ const headerMiddleware: MiddlewareFunction = async ({ next }) => {
 #### Context Chaining
 
 ```ts
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 const middleware1: MiddlewareFunction = async ({ next }) => {
   const response = await next({
-    context: { value1: 'first' },
+    context: { value1: "first" },
   });
   return response;
 };
@@ -361,7 +377,7 @@ const middleware2: MiddlewareFunction = async ({ context, next }) => {
   console.log(context.value1); // 'first'
 
   const response = await next({
-    context: { value2: 'second' },
+    context: { value2: "second" },
   });
   return response;
 };
@@ -370,15 +386,15 @@ const middleware2: MiddlewareFunction = async ({ context, next }) => {
 #### Early Returns
 
 ```ts
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 const authMiddleware: MiddlewareFunction = async ({ next }) => {
   const isAuthed = false;
 
   if (!isAuthed) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -394,7 +410,7 @@ If you're upgrading from v0.1.x to v0.2.0, there are some changes to the middlew
 
 ```typescript
 const authMiddleware = async () => {
-  return { user: { id: 'user-123' } };
+  return { user: { id: "user-123" } };
 };
 
 const route = createZodRoute()
@@ -408,22 +424,22 @@ const route = createZodRoute()
 #### After (v0.2.0)
 
 ```typescript
-import { type MiddlewareFunction } from 'next-zod-route';
+import { type MiddlewareFunction } from "next-zod-route";
 
 const authMiddleware: MiddlewareFunction = async ({ next }) => {
   // Execute code before handler
-  console.log('Checking auth...');
+  console.log("Checking auth...");
 
   // Add context & continue chain
   const response = await next({
-    context: { user: { id: 'user-123' } },
+    context: { user: { id: "user-123" } },
   });
 
   // Modify response or execute code after
   return new Response(response.body, {
     headers: {
       ...Object.fromEntries(response.headers.entries()),
-      'X-User-Id': 'user-123',
+      "X-User-Id": "user-123",
     },
   });
 };
@@ -452,12 +468,12 @@ Key changes in v0.2.0:
 `next-zod-route` provides a structured error interface for better error handling and API consistency:
 
 ```ts
-import { type RouteHandlerError, createZodRoute } from 'next-zod-route';
+import { type RouteHandlerError, createZodRoute } from "next-zod-route";
 
 // The RouteHandlerError interface extends the standard Error
 interface RouteHandlerError extends Error {
-  status: number;                    // HTTP status code (required)
-  code: string;                      // Application error code (required)
+  status: number; // HTTP status code (required)
+  code: string; // Application error code (required)
   metadata?: Record<string, unknown>; // Additional error context (optional)
 }
 ```
@@ -467,20 +483,20 @@ interface RouteHandlerError extends Error {
 You can create custom error classes that implement the `RouteHandlerError` interface:
 
 ```ts
-import { type RouteHandlerError } from 'next-zod-route';
+import { type RouteHandlerError } from "next-zod-route";
 
 // Validation error with field details
 class ValidationError extends Error implements RouteHandlerError {
   status = 422;
-  code = 'VALIDATION_ERROR';
+  code = "VALIDATION_ERROR";
   metadata: Record<string, unknown>;
 
   constructor(message: string, fields: Record<string, string>) {
     super(message);
-    this.name = 'ValidationError';
-    this.metadata = { 
+    this.name = "ValidationError";
+    this.metadata = {
       fields,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }
@@ -488,27 +504,27 @@ class ValidationError extends Error implements RouteHandlerError {
 // Authentication error
 class AuthError extends Error implements RouteHandlerError {
   status = 401;
-  code = 'UNAUTHORIZED';
-  
-  constructor(message: string = 'Authentication required') {
+  code = "UNAUTHORIZED";
+
+  constructor(message: string = "Authentication required") {
     super(message);
-    this.name = 'AuthError';
+    this.name = "AuthError";
   }
 }
 
 // Permission error with required permissions
 class PermissionError extends Error implements RouteHandlerError {
   status = 403;
-  code = 'INSUFFICIENT_PERMISSIONS';
+  code = "INSUFFICIENT_PERMISSIONS";
   metadata: Record<string, unknown>;
 
   constructor(message: string, required: string[], current: string[]) {
     super(message);
-    this.name = 'PermissionError';
-    this.metadata = { 
-      required, 
+    this.name = "PermissionError";
+    this.metadata = {
+      required,
       current,
-      resource: 'API endpoint'
+      resource: "API endpoint",
     };
   }
 }
@@ -516,16 +532,16 @@ class PermissionError extends Error implements RouteHandlerError {
 // Rate limiting error
 class RateLimitError extends Error implements RouteHandlerError {
   status = 429;
-  code = 'RATE_LIMIT_EXCEEDED';
+  code = "RATE_LIMIT_EXCEEDED";
   metadata: Record<string, unknown>;
 
   constructor(limit: number, resetTime: string) {
-    super('Too many requests');
-    this.name = 'RateLimitError';
-    this.metadata = { 
-      limit, 
+    super("Too many requests");
+    this.name = "RateLimitError";
+    this.metadata = {
+      limit,
       resetTime,
-      retryAfter: 60
+      retryAfter: 60,
     };
   }
 }
@@ -554,7 +570,7 @@ const safeRoute = createZodRoute({
         error: error.message,
         code: error.code,
         fields: error.metadata?.fields
-      }), { 
+      }), {
         status: error.status,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -566,7 +582,7 @@ const safeRoute = createZodRoute({
         code: error.code,
         retryAfter: error.metadata?.retryAfter
         status: error.status,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Retry-After': String(error.metadata?.retryAfter || 60)
         }
@@ -578,7 +594,7 @@ const safeRoute = createZodRoute({
       error: error.message,
       code: error.code,
       timestamp: new Date().toISOString()
-    }), { 
+    }), {
       status: error.status,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -593,19 +609,19 @@ export const POST = safeRoute
   }))
   .handler((request, context) => {
     const { email, age } = context.body;
-    
+
     // Throw structured validation error
     if (!email.includes('@company.com')) {
       throw new ValidationError('Invalid email domain', {
         email: 'Must be a company email address'
       });
     }
-    
+
     // Throw permission error
     if (age < 21) {
       throw new PermissionError('Access denied', ['adult'], ['minor']);
     }
-    
+
     return { success: true, user: { email, age } };
   });
 ```
